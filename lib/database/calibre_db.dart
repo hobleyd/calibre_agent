@@ -229,7 +229,7 @@ class CalibreDatabase {
     return Book(
       uuid: uuid,
       title: row['title'] as String? ?? '',
-      series: BookSeries(series: row['series'] as String? ?? ''),When
+      series: BookSeries(series: row['series'] as String? ?? ''),
       seriesIndex: _toDouble(row['series_index']),
       authors: authors,
       rating: _toInt(row['rating']),
