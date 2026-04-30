@@ -20,7 +20,7 @@ dependencies:
   shared_preferences: ^2.5.4
   shelf: ^1.4.2
   shelf_router: ^1.1.4
-  sqlite3: ^2.7.4
+  sqlite3: ^3.3.1
   sqlite3_flutter_libs: ^0.6.0+eol
 
 dev_dependencies:
