@@ -1,0 +1,87 @@
+name: calibre-agent-linux-ci
+
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get App version
+        uses: mikefarah/yq@master
+        with:
+          cmd: echo "VERSION=$(yq .version pubspec.yaml)" >> $GITHUB_ENV
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          architecture: x64
+          cache: false
+      - run: sudo apt-get update -y
+      - run: sudo apt-get install -y ninja-build libgtk-3-dev binutils coreutils desktop-file-utils fakeroot fuse libgdk-pixbuf2.0-dev patchelf python3-pip python3-setuptools squashfs-tools strace util-linux zsync libavahi-client-dev
+      - run: flutter config --enable-linux-desktop
+      - run: flutter create --platforms=linux .
+      - run: flutter test test/widget_test.dart
+      - run: flutter build linux --release
+      - name: Copy icon into bundle
+        run: cp assets/icon.png build/linux/x64/release/bundle/com.sharpblue.calibreagent.png
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+      - name: Configure Flatpak runtime
+        run: |
+          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+      - name: Create Flatpak bundle
+        run: |
+          cat > com.sharpblue.calibreagent.yaml <<'EOF'
+          app-id: com.sharpblue.calibreagent
+          runtime: org.freedesktop.Platform
+          runtime-version: '24.08'
+          sdk: org.freedesktop.Sdk
+          command: calibre_agent
+          finish-args:
+            - --share=ipc
+            - --share=network
+            - --socket=fallback-x11
+            - --socket=wayland
+            - --device=dri
+            - --filesystem=home
+          modules:
+            - name: calibre-agent
+              buildsystem: simple
+              build-commands:
+                - install -Dm755 calibre_agent /app/bin/calibre_agent
+                - cp -r lib /app/lib
+                - cp -r data /app/data
+                - install -Dm644 com.sharpblue.calibreagent.desktop /app/share/applications/com.sharpblue.calibreagent.desktop
+                - install -Dm644 com.sharpblue.calibreagent.png /app/share/icons/hicolor/512x512/apps/com.sharpblue.calibreagent.png
+              sources:
+                - type: dir
+                  path: build/linux/x64/release/bundle
+                - type: file
+                  path: com.sharpblue.calibreagent.desktop
+          EOF
+
+          cat > com.sharpblue.calibreagent.desktop <<'EOF'
+          [Desktop Entry]
+          Name=Calibre Agent
+          Exec=calibre_agent
+          Icon=com.sharpblue.calibreagent
+          Type=Application
+          Categories=Office;
+          Terminal=false
+          EOF
+
+          flatpak-builder --force-clean --repo=repo build-dir com.sharpblue.calibreagent.yaml
+          flatpak build-bundle repo calibre-agent-${VERSION}-linux-x86_64.flatpak com.sharpblue.calibreagent
+      - name: Upload Linux Flatpak to Release
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: calibre-agent-${{ env.VERSION }}-linux-x86_64.flatpak

@@ -1,0 +1,43 @@
+name: calibre-agent-macos-ci
+
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - run: brew install yq
+      - uses: actions/checkout@v3
+      - name: Get the app version
+        id: get_version
+        run: |
+          echo "VERSION=$(yq .version pubspec.yaml)" >> $GITHUB_ENV
+      - name: "Push version tag from pubspec.yaml"
+        uses: EndBug/latest-tag@latest
+        with:
+          tag-name: ${{ env.VERSION }}
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          architecture: x64
+          cache: true
+      - run: flutter config --enable-macos-desktop
+      - run: flutter create --platforms=macos .
+      - run: flutter test test/widget_test.dart
+      - run: dart run flutter_launcher_icons
+      - run: flutter build macos --release --no-tree-shake-icons
+      - uses: lethja/create-dmg-action@v0.0.2
+        with:
+          name: 'calibre-agent'
+          srcdir: 'build/macos/Build/Products/Release/calibre_agent.app'
+      - name: Create Release
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          files: 'calibre-agent.dmg'
+          name: 'calibre-agent-${{ env.VERSION }}'
+          tag_name: ${{ env.VERSION }}

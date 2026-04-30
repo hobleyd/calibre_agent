@@ -1,0 +1,37 @@
+name: calibre-agent-windows-ci
+
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          architecture: x64
+      - run: choco install yq --no-progress -y
+      - run: echo "VERSION=$(yq .version pubspec.yaml)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: "Push version tag from pubspec.yaml"
+        uses: EndBug/latest-tag@latest
+        with:
+          tag-name: ${{ env.VERSION }}
+      - run: flutter config --enable-windows-desktop
+      - run: flutter create --platforms=windows .
+      - run: flutter test test/widget_test.dart
+      - run: dart run flutter_launcher_icons
+      - run: flutter build windows --release --no-tree-shake-icons
+      - name: Zip Windows build
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath calibre-agent-${{ env.VERSION }}-windows.zip
+      - name: Create Release
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          name: 'calibre-agent-${{ env.VERSION }}'
+          files: 'calibre-agent-${{ env.VERSION }}-windows.zip'
+          tag_name: ${{ env.VERSION }}
