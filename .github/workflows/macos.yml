@@ -29,10 +29,12 @@ jobs:
       - run: flutter test test/widget_test.dart
       - run: dart run flutter_launcher_icons
       - run: flutter build macos --release --no-tree-shake-icons
+      - name: Rename app bundle
+        run: mv build/macos/Build/Products/Release/calibre_agent.app build/macos/Build/Products/Release/calibre-agent.app
       - uses: lethja/create-dmg-action@v0.0.2
         with:
           name: 'calibre-agent'
-          srcdir: 'build/macos/Build/Products/Release/calibre_agent.app'
+          srcdir: 'build/macos/Build/Products/Release/calibre-agent.app'
       - name: Create Release
         uses: softprops/action-gh-release@v0.1.15
         with:
