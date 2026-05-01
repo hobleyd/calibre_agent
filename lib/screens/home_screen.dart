@@ -251,8 +251,7 @@ class _LibraryCard extends ConsumerWidget {
                 onPressed: state.isRunning
                     ? null
                     : () async {
-                        final result = await FilePicker.platform
-                            .getDirectoryPath(
+                        final result = await FilePicker.getDirectoryPath(
                           dialogTitle: 'Select Calibre Library',
                         );
                         if (result != null) {
