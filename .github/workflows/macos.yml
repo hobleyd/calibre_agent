@@ -28,7 +28,7 @@ jobs:
       - run: flutter config --enable-macos-desktop
       - run: flutter test test/widget_test.dart
       - run: dart run flutter_launcher_icons
-      - run: flutter build macos --release --no-tree-shake-icons --no-codesign
+      - run: flutter build macos --release --no-tree-shake-icons
       - uses: lethja/create-dmg-action@v0.0.2
         with:
           name: 'calibre-agent'
