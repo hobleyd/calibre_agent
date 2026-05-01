@@ -30,7 +30,7 @@ jobs:
       - run: dart run flutter_launcher_icons
       - run: flutter build macos --release --no-tree-shake-icons
       - name: Rename app bundle
-        run: mv build/macos/Build/Products/Release/calibre_agent.app build/macos/Build/Products/Release/calibre-agent.app
+        run: mv "build/macos/Build/Products/Release/Calibre Agent.app" build/macos/Build/Products/Release/calibre-agent.app
       - uses: lethja/create-dmg-action@v0.0.2
         with:
           name: 'calibre-agent'
