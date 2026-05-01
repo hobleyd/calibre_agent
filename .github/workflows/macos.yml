@@ -24,13 +24,11 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          architecture: x64
           cache: true
       - run: flutter config --enable-macos-desktop
-      - run: flutter create --platforms=macos .
       - run: flutter test test/widget_test.dart
       - run: dart run flutter_launcher_icons
-      - run: flutter build macos --release --no-tree-shake-icons
+      - run: flutter build macos --release --no-tree-shake-icons --no-codesign
       - uses: lethja/create-dmg-action@v0.0.2
         with:
           name: 'calibre-agent'

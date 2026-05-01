@@ -28,7 +28,7 @@ jobs:
       - run: flutter test test/widget_test.dart
       - run: flutter build linux --release
       - name: Copy icon into bundle
-        run: cp assets/icon.png build/linux/x64/release/bundle/com.sharpblue.calibreagent.png
+        run: convert assets/icon.png -resize 512x512 build/linux/x64/release/bundle/com.sharpblue.calibreagent.png
       - name: Install Flatpak tooling
         run: |
           sudo apt-get update
