@@ -2,7 +2,7 @@ name: calibre_agent
 description: Calibre Agent - HTTPS REST API for your Calibre library
 publish_to: none
 
-version: 1.0.0+1
+version: 1.0.1
 
 environment:
   sdk: ^3.11.3

@@ -52,7 +52,15 @@ class ServerNotifier extends Notifier<ServerState> {
   final _mdns = MdnsService();
 
   @override
-  ServerState build() => const ServerState();
+  ServerState build() {
+    Future.microtask(_loadCertExpiry);
+    return const ServerState();
+  }
+
+  Future<void> _loadCertExpiry() async {
+    final expiry = await CertService.expiryDate();
+    if (expiry != null) state = state.copyWith(certExpiry: expiry);
+  }
 
   Future<void> start() async {
     final settings = ref.read(settingsProvider);
@@ -119,6 +127,7 @@ class ServerNotifier extends Notifier<ServerState> {
     if (state.isRunning) await stop();
     try {
       await CertService.regenerate();
+      await _loadCertExpiry();
       _addLog(LogEntry.info('SSL certificate regenerated'));
     } catch (e) {
       _addLog(LogEntry.error('Certificate regeneration failed: $e'));

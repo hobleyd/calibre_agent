@@ -35,7 +35,7 @@ class CalibreDatabase {
                COALESCE(r.rating, 0) AS rating,
                COALESCE(cc3.value, 0) AS is_read,
                COALESCE(strftime('%s', cc4.value), 0) AS last_read,
-               strftime('%s', last_modified, 'localtime') AS last_mod,
+               strftime('%s', last_modified) AS last_mod,
                COALESCE(c.text, '') AS blurb
         FROM books
         LEFT JOIN custom_column_3 cc3 ON cc3.book = books.id
@@ -45,8 +45,8 @@ class CalibreDatabase {
         LEFT JOIN comments c ON c.book = books.id
         LEFT JOIN books_ratings_link brl ON brl.book = books.id
         LEFT JOIN ratings r ON r.id = brl.id
-        WHERE datetime(last_modified, 'localtime') >= datetime(?, 'unixepoch')
-           OR datetime(cc4.value, 'localtime') >= datetime(?, 'unixepoch')
+        WHERE datetime(last_modified) >= datetime(?, 'unixepoch')
+           OR datetime(cc4.value) >= datetime(?, 'unixepoch')
         LIMIT ? OFFSET ?
       ''', [lastModified, lastModified, limit, offset]);
 
@@ -67,7 +67,7 @@ class CalibreDatabase {
                COALESCE(r.rating, 0) AS rating,
                COALESCE(cc3.value, 0) AS is_read,
                COALESCE(strftime('%s', cc4.value), 0) AS last_read,
-               strftime('%s', last_modified, 'localtime') AS last_mod,
+               strftime('%s', last_modified) AS last_mod,
                COALESCE(c.text, '') AS blurb
         FROM books
         LEFT JOIN custom_column_3 cc3 ON cc3.book = books.id
@@ -129,8 +129,8 @@ class CalibreDatabase {
                COUNT(*) OVER() AS count
         FROM books b
         LEFT JOIN custom_column_4 cc ON b.id = cc.book
-        WHERE datetime(last_modified, 'localtime') >= datetime(?, 'unixepoch')
-           OR datetime(value, 'localtime') >= datetime(?, 'unixepoch')
+        WHERE datetime(last_modified) >= datetime(?, 'unixepoch')
+           OR datetime(value) >= datetime(?, 'unixepoch')
         ORDER BY unixepoch(last_modified) DESC
         LIMIT ?
       ''', [lastModified, lastModified, limit]);
@@ -184,7 +184,7 @@ class CalibreDatabase {
 
       db.execute('''
         INSERT INTO custom_column_4 (book, value)
-        VALUES ((SELECT id FROM books WHERE uuid = ?), datetime(?, 'unixepoch', 'localtime'))
+        VALUES ((SELECT id FROM books WHERE uuid = ?), datetime(?, 'unixepoch'))
         ON CONFLICT (book) DO UPDATE SET value = excluded.value
       ''', [uuid, lastRead]);
 
@@ -196,7 +196,7 @@ class CalibreDatabase {
 
       db.execute('''
         UPDATE books
-        SET last_modified = datetime(?, 'unixepoch', 'localtime')
+        SET last_modified = datetime(?, 'unixepoch')
         WHERE uuid = ?
       ''', [lastMod, uuid]);
 
