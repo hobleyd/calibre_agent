@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  bonsoir: ^6.0.2
+  bonsoir: ^7.1.0
   cupertino_icons: ^1.0.8
   file_picker: ^11.0.2
   flutter_riverpod: ^3.0.1

@@ -11,7 +11,7 @@ class MdnsService {
 
     final service = BonsoirService(
       name: 'calibre-agent',
-      type: '_http._tcp',
+      type: '_calibre-agent._tcp',
       port: port,
       attributes: {
         'description': 'Calibre Agent',

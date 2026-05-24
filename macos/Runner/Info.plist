@@ -30,7 +30,7 @@
 	<string>NSApplication</string>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_http._tcp</string>
+		<string>_calibre-agent._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Calibre Agent advertises itself on the local network so Paladin can discover it automatically.</string>
