@@ -178,15 +178,15 @@ class CalibreDatabase {
 
       db.execute('''
         INSERT INTO custom_column_3 (book, value)
-        VALUES ((SELECT id FROM books WHERE uuid = ?), ?)
+        SELECT id, ? FROM books WHERE uuid = ?
         ON CONFLICT (book) DO UPDATE SET value = excluded.value
-      ''', [uuid, isRead ? 1 : 0]);
+      ''', [isRead ? 1 : 0, uuid]);
 
       db.execute('''
         INSERT INTO custom_column_4 (book, value)
-        VALUES ((SELECT id FROM books WHERE uuid = ?), datetime(?, 'unixepoch'))
+        SELECT id, datetime(?, 'unixepoch') FROM books WHERE uuid = ?
         ON CONFLICT (book) DO UPDATE SET value = excluded.value
-      ''', [uuid, lastRead]);
+      ''', [lastRead, uuid]);
 
       db.execute('''
         DELETE FROM books_tags_link
