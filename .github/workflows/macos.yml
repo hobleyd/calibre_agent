@@ -130,13 +130,30 @@ jobs:
         if: ${{ always() && env.HAS_SIGNING_CERT == 'true' }}
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
-      - uses: lethja/create-dmg-action@v0.0.2
-        with:
-          name: 'calibre-agent'
-          srcdir: 'build/macos/Build/Products/Release/calibre-agent.app'
+      # create-dmg is called directly rather than through
+      # lethja/create-dmg-action, which derives *three* things from its one
+      # `name` input: the output file, `--volname`, and `--icon <name>.app` —
+      # and that last one names the bundle **inside** the volume, which Finder
+      # then has to find to position it. So the version can't be added to the
+      # file name without also claiming the app is called
+      # `calibre-agent-<version>.app`, which fails with "Can't set item ...
+      # (-10006)". The app bundle was already renamed to `calibre-agent.app`
+      # above, so its name here is fixed rather than resolved from disk.
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "Calibre Agent ${{ env.VERSION }}" \
+            --window-pos 200 120 \
+            --window-size 800 450 \
+            --icon-size 100 \
+            --icon "calibre-agent.app" 200 185 \
+            --app-drop-link 600 185 \
+            "calibre-agent-${{ env.VERSION }}.dmg" \
+            "build/macos/Build/Products/Release/calibre-agent.app"
       - name: Create Release
         uses: softprops/action-gh-release@v0.1.15
         with:
-          files: 'calibre-agent.dmg'
+          files: 'calibre-agent-${{ env.VERSION }}.dmg'
           name: 'calibre-agent-${{ env.VERSION }}'
           tag_name: ${{ env.VERSION }}
