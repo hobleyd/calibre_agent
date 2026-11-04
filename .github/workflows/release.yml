@@ -1,36 +1,65 @@
-name: calibre-agent-macos-ci
+name: calibre-agent-release
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+
 permissions:
   contents: write
 
 jobs:
-  build:
+  # The suite runs here, once, and every build job needs this one -- so a
+  # failing test stops the release before the tag moves or anything is built.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: false
+
+      - run: flutter pub get
+      - run: flutter test
+
+  prepare:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from pubspec.yaml
+        id: version
+        run: echo "version=$(grep '^version:' pubspec.yaml | awk '{print $2}')" >> $GITHUB_OUTPUT
+
+      - name: Push version tag
+        uses: EndBug/latest-tag@latest
+        with:
+          tag-name: ${{ steps.version.outputs.version }}
+
+  build-macos:
+    needs: prepare
     runs-on: macos-latest
     env:
+      VERSION: ${{ needs.prepare.outputs.version }}
       # `if:` conditions cannot reference the secrets context directly, so
       # gate signing/notarization steps on this instead.
       HAS_SIGNING_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
     steps:
-      - run: brew install yq
-      - uses: actions/checkout@v3
-      - name: Get the app version
-        id: get_version
-        run: |
-          echo "VERSION=$(yq .version pubspec.yaml)" >> $GITHUB_ENV
-      - name: "Push version tag from pubspec.yaml"
-        uses: EndBug/latest-tag@latest
-        with:
-          tag-name: ${{ env.VERSION }}
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
       - run: flutter config --enable-macos-desktop
-      - run: flutter test test/widget_test.dart
       - run: dart run flutter_launcher_icons
 
       # Only a push to main (or a same-repo PR) carries these secrets; a
@@ -157,4 +186,103 @@ jobs:
         with:
           files: 'calibre-agent-${{ env.VERSION }}.dmg'
           name: 'calibre-agent-${{ env.VERSION }}'
+          tag_name: ${{ env.VERSION }}
+
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          architecture: x64
+          cache: false
+      - run: sudo apt-get update -y
+      - run: sudo apt-get install -y ninja-build libgtk-3-dev binutils coreutils desktop-file-utils fakeroot fuse libgdk-pixbuf-2.0-dev patchelf python3-pip python3-setuptools squashfs-tools strace util-linux zsync libavahi-client-dev
+      - run: flutter config --enable-linux-desktop
+      - run: flutter create --platforms=linux .
+      - run: flutter build linux --release
+      - name: Copy icon into bundle
+        run: cp assets/icon_512.png build/linux/x64/release/bundle/au.com.sharpblue.calibreagent.png
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+      - name: Configure Flatpak runtime
+        run: |
+          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+      - name: Create Flatpak bundle
+        run: |
+          cat > au.com.sharpblue.calibreagent.yaml <<'EOF'
+          app-id: au.com.sharpblue.calibreagent
+          runtime: org.freedesktop.Platform
+          runtime-version: '24.08'
+          sdk: org.freedesktop.Sdk
+          command: calibre_agent
+          finish-args:
+            - --share=ipc
+            - --share=network
+            - --socket=fallback-x11
+            - --socket=wayland
+            - --device=dri
+            - --filesystem=home
+          modules:
+            - name: calibre-agent
+              buildsystem: simple
+              build-commands:
+                - install -Dm755 calibre_agent /app/bin/calibre_agent
+                - cp -r lib /app/lib
+                - cp -r data /app/data
+                - install -Dm644 au.com.sharpblue.calibreagent.desktop /app/share/applications/au.com.sharpblue.calibreagent.desktop
+                - install -Dm644 au.com.sharpblue.calibreagent.png /app/share/icons/hicolor/512x512/apps/au.com.sharpblue.calibreagent.png
+              sources:
+                - type: dir
+                  path: build/linux/x64/release/bundle
+                - type: file
+                  path: au.com.sharpblue.calibreagent.desktop
+          EOF
+
+          cat > au.com.sharpblue.calibreagent.desktop <<'EOF'
+          [Desktop Entry]
+          Name=Calibre Agent
+          Exec=calibre_agent
+          Icon=au.com.sharpblue.calibreagent
+          Type=Application
+          Categories=Office;
+          Terminal=false
+          EOF
+
+          flatpak-builder --force-clean --repo=repo build-dir au.com.sharpblue.calibreagent.yaml
+          flatpak build-bundle repo calibre-agent-${VERSION}-linux-x86_64.flatpak au.com.sharpblue.calibreagent
+      - name: Upload Linux Flatpak to Release
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: calibre-agent-${{ env.VERSION }}-linux-x86_64.flatpak
+
+  build-windows:
+    needs: prepare
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          architecture: x64
+      - run: choco install innosetup --no-progress -y
+      - run: flutter config --enable-windows-desktop
+      - run: dart run flutter_launcher_icons
+      - run: flutter build windows --release --no-tree-shake-icons
+      - run: dart run windows.dart
+      - name: Create Release
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          name: 'calibre-agent-${{ env.VERSION }}'
+          files: 'build/windows/calibre-agent-${{ env.VERSION }}.exe'
           tag_name: ${{ env.VERSION }}
